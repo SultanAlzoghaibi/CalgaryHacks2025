@@ -1,12 +1,11 @@
 "use server";
 
-import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { getCollection } from "../app/lib/db";
 import { RegisterFormSchema } from "./rules";
 import { redirect } from "next/navigation";
 import type { Collection } from "mongodb";
 
-// Define a type for the error object returned in case of validation or server errors.
 type RegisterError = {
   errors: { [key: string]: string[] | string } | undefined;
   email?: string;
@@ -16,9 +15,6 @@ export async function register(
   state: unknown,
   formData: FormData
 ): Promise<RegisterError | void> {
-  // Optionally simulate a delay (e.g., for debugging)
-  // await new Promise((resolve) => setTimeout(resolve, 3000));
-
   // Validate form fields
   const validatedFields = RegisterFormSchema.safeParse({
     email: formData.get("email"),
@@ -26,7 +22,6 @@ export async function register(
     confirmPassword: formData.get("confirmPassword"),
   });
 
-  // If any form fields are invalid, return an error object.
   if (!validatedFields.success) {
     return {
       errors: validatedFields.error.flatten().fieldErrors,
@@ -34,38 +29,33 @@ export async function register(
     };
   }
 
-  // Extract form fields from the validated data.
+  // Extract form fields from validated data
   const { email, password } = validatedFields.data;
 
-  // Get the "users" collection from your database.
+  // Get the "users" collection from your database
   const userCollection: Collection | null = await getCollection("users");
   if (!userCollection) {
-    return { errors: { email: "Server error!" } };
+    return { errors: { email: "Server error! (No collection found)" } };
   }
-  console.log(userCollection);
 
-  // Check if the email is already registered.
+  // Check if email is already taken
   const existingUser = await userCollection.findOne({ email });
   if (existingUser) {
-    return {
-      errors: {
-        email: "Email already exists in our database!",
-      },
-    };
+    return { errors: { email: "Email already exists in our database!" } };
   }
 
-  // Hash the password using bcrypt.
-  const hashedPassword = await bcrypt.hash(password, 10);
+  // ❗ Deterministic SHA-256 hashing (not recommended for secure password storage)
+  const hashedPassword = crypto
+    .createHash("sha256")
+    .update(password, "utf8")
+    .digest("hex");
 
-  // Save the new user in the database.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const results = await userCollection.insertOne({
+  // Save user in DB
+  await userCollection.insertOne({
     email,
     password: hashedPassword,
   });
 
-  // Create a session here if needed.
-
-  // Redirect to the dashboard.
-  redirect("/dashboard/${user.code}");
+  // Redirect to the dashboard (Adjust path as needed)
+  redirect("/dashboard/somecode");
 }

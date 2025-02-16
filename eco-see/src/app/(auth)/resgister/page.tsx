@@ -88,12 +88,6 @@ export default function Register() {
               {isPending ? "Loading..." : "Register"}
             </button>
           </div>
-
-          <div className="text-center mt-4">
-            <Link href="/" className="text-green-400 hover:text-green-300">
-              or login here
-            </Link>
-          </div>
         </form>
       </div>
     </div>

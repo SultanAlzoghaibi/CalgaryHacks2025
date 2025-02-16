@@ -1,21 +1,25 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 
-interface PlayerMetrics {
+type PlayerMetrics = {
   driving: number;
   recycling: number;
   energy: number;
   water: number;
   foodWaste: number;
-}
+};
 
-interface MetricsState {
+type MetricsState = {
   player1: PlayerMetrics;
   player2: PlayerMetrics;
-}
+};
 
 export default function EcoTracker() {
+  const searchParams = useSearchParams(); // read-only
+  const router = useRouter();
+
   const [metrics, setMetrics] = useState<MetricsState>({
     player1: { driving: 0, recycling: 0, energy: 0, water: 0, foodWaste: 0 },
     player2: { driving: 0, recycling: 0, energy: 0, water: 0, foodWaste: 0 },
@@ -23,30 +27,68 @@ export default function EcoTracker() {
 
   const [showResults, setShowResults] = useState(false);
 
-  // 1️⃣ On initial load, read from localStorage (if available)
+  // 1️⃣ On mount, parse query params to restore state
   useEffect(() => {
-    const stored = localStorage.getItem("ecoMetrics");
-    const storedShowResults = localStorage.getItem("ecoShowResults");
-    if (stored) {
-      setMetrics(JSON.parse(stored));
-    }
-    if (storedShowResults === "true") {
-      setShowResults(true);
-    }
-  }, []);
+    const initMetrics: MetricsState = {
+      player1: {
+        driving: parseNum(searchParams.get("p1driving")),
+        recycling: parseNum(searchParams.get("p1recycling")),
+        energy: parseNum(searchParams.get("p1energy")),
+        water: parseNum(searchParams.get("p1water")),
+        foodWaste: parseNum(searchParams.get("p1foodWaste")),
+      },
+      player2: {
+        driving: parseNum(searchParams.get("p2driving")),
+        recycling: parseNum(searchParams.get("p2recycling")),
+        energy: parseNum(searchParams.get("p2energy")),
+        water: parseNum(searchParams.get("p2water")),
+        foodWaste: parseNum(searchParams.get("p2foodWaste")),
+      },
+    };
+    setMetrics(initMetrics);
 
-  // 2️⃣ Whenever metrics or showResults changes, save to localStorage
+    // If "showResults" param is true, restore that
+    setShowResults(searchParams.get("showResults") === "true");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once
+
+  // 2️⃣ Whenever metrics or showResults changes, update the URL
   useEffect(() => {
-    localStorage.setItem("ecoMetrics", JSON.stringify(metrics));
-    localStorage.setItem("ecoShowResults", showResults.toString());
+    updateURL();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metrics, showResults]);
 
-  // Update function for each input
-  const handleChange = (
+  function parseNum(val: string | null): number {
+    return val ? Number(val) : 0;
+  }
+
+  function updateURL() {
+    // Build a new query string
+    const p1 = metrics.player1;
+    const p2 = metrics.player2;
+    const query = new URLSearchParams({
+      p1driving: String(p1.driving),
+      p1recycling: String(p1.recycling),
+      p1energy: String(p1.energy),
+      p1water: String(p1.water),
+      p1foodWaste: String(p1.foodWaste),
+      p2driving: String(p2.driving),
+      p2recycling: String(p2.recycling),
+      p2energy: String(p2.energy),
+      p2water: String(p2.water),
+      p2foodWaste: String(p2.foodWaste),
+      showResults: String(showResults),
+    });
+
+    // Replace the current route with the updated query
+    router.replace(`?${query.toString()}`, { scroll: false });
+  }
+
+  function handleChange(
     player: "player1" | "player2",
     metric: keyof PlayerMetrics,
     value: number
-  ) => {
+  ) {
     setMetrics((prev) => ({
       ...prev,
       [player]: {
@@ -54,45 +96,41 @@ export default function EcoTracker() {
         [metric]: value,
       },
     }));
-  };
+  }
 
-  // onSubmit
-  const handleSubmit = (e: React.FormEvent) => {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setShowResults(true);
-  };
+  }
 
-  // Calculate Eco Score
-  const calculateEcoScore = (player: "player1" | "player2") => {
+  function calculateEcoScore(player: "player1" | "player2") {
     const data = metrics[player];
     return (
-      -data.driving * 2 + // 🚗 Hours driving => negative
-      data.recycling * 5 + // ♻ KG recycling => positive
-      data.energy * 4 + // ⚡ kWh saved => positive
-      data.water * 3 - // 💧 liters water => positive
-      data.foodWaste * 3 // 🍽️ times wasted => negative
+      -data.driving * 2 + // negative
+      data.recycling * 5 + // positive
+      data.energy * 4 + // positive
+      data.water * 3 - // positive
+      data.foodWaste * 3 // negative
     );
-  };
+  }
 
-  // Score analysis
-  const humanJudgment = (score: number) => {
+  function humanJudgment(score: number) {
     if (score > 20) return "Amazing job! You're a true eco hero!";
     if (score > 10) return "Pretty good, keep it up!";
     if (score >= 0) return "Not terrible, but there's room to improve.";
     return "You're harming the planet... Please do better!";
-  };
+  }
 
-  // Combined text
-  const totalScoreText = () => {
-    const score1 = calculateEcoScore("player1");
-    const score2 = calculateEcoScore("player2");
-    const totalScore = score1 + score2;
+  function totalScoreText() {
+    const s1 = calculateEcoScore("player1");
+    const s2 = calculateEcoScore("player2");
+    const totalScore = s1 + s2;
 
     if (totalScore < 40) {
       return `Total: ${totalScore}. You're harming the planet... let's see how your impact affects the animals.`;
     }
     return `Total: ${totalScore}. Congrats! You're doing great! The animals will have an easier time.`;
-  };
+  }
 
   const score1 = calculateEcoScore("player1");
   const score2 = calculateEcoScore("player2");
@@ -121,7 +159,7 @@ export default function EcoTracker() {
                   min="0"
                   value={metrics.player1.driving}
                   onChange={(e) =>
-                    handleChange("player1", "driving", Number(e.target.value))
+                    handleChange("player1", "driving", +e.target.value)
                   }
                   className="w-16 bg-gray-900 text-red-400 border border-red-500 rounded text-center"
                 />
@@ -132,7 +170,7 @@ export default function EcoTracker() {
                   min="0"
                   value={metrics.player2.driving}
                   onChange={(e) =>
-                    handleChange("player2", "driving", Number(e.target.value))
+                    handleChange("player2", "driving", +e.target.value)
                   }
                   className="w-16 bg-gray-900 text-red-400 border border-red-500 rounded text-center"
                 />
@@ -147,7 +185,7 @@ export default function EcoTracker() {
                   min="0"
                   value={metrics.player1.recycling}
                   onChange={(e) =>
-                    handleChange("player1", "recycling", Number(e.target.value))
+                    handleChange("player1", "recycling", +e.target.value)
                   }
                   className="w-16 bg-gray-900 text-green-400 border border-green-500 rounded text-center"
                 />
@@ -158,7 +196,7 @@ export default function EcoTracker() {
                   min="0"
                   value={metrics.player2.recycling}
                   onChange={(e) =>
-                    handleChange("player2", "recycling", Number(e.target.value))
+                    handleChange("player2", "recycling", +e.target.value)
                   }
                   className="w-16 bg-gray-900 text-green-400 border border-green-500 rounded text-center"
                 />
@@ -173,7 +211,7 @@ export default function EcoTracker() {
                   min="0"
                   value={metrics.player1.energy}
                   onChange={(e) =>
-                    handleChange("player1", "energy", Number(e.target.value))
+                    handleChange("player1", "energy", +e.target.value)
                   }
                   className="w-16 bg-gray-900 text-green-400 border border-green-500 rounded text-center"
                 />
@@ -184,7 +222,7 @@ export default function EcoTracker() {
                   min="0"
                   value={metrics.player2.energy}
                   onChange={(e) =>
-                    handleChange("player2", "energy", Number(e.target.value))
+                    handleChange("player2", "energy", +e.target.value)
                   }
                   className="w-16 bg-gray-900 text-green-400 border border-green-500 rounded text-center"
                 />
@@ -201,7 +239,7 @@ export default function EcoTracker() {
                   min="0"
                   value={metrics.player1.water}
                   onChange={(e) =>
-                    handleChange("player1", "water", Number(e.target.value))
+                    handleChange("player1", "water", +e.target.value)
                   }
                   className="w-16 bg-gray-900 text-green-400 border border-green-500 rounded text-center"
                 />
@@ -212,7 +250,7 @@ export default function EcoTracker() {
                   min="0"
                   value={metrics.player2.water}
                   onChange={(e) =>
-                    handleChange("player2", "water", Number(e.target.value))
+                    handleChange("player2", "water", +e.target.value)
                   }
                   className="w-16 bg-gray-900 text-green-400 border border-green-500 rounded text-center"
                 />
@@ -229,7 +267,7 @@ export default function EcoTracker() {
                   min="0"
                   value={metrics.player1.foodWaste}
                   onChange={(e) =>
-                    handleChange("player1", "foodWaste", Number(e.target.value))
+                    handleChange("player1", "foodWaste", +e.target.value)
                   }
                   className="w-16 bg-gray-900 text-red-400 border border-red-500 rounded text-center"
                 />
@@ -240,7 +278,7 @@ export default function EcoTracker() {
                   min="0"
                   value={metrics.player2.foodWaste}
                   onChange={(e) =>
-                    handleChange("player2", "foodWaste", Number(e.target.value))
+                    handleChange("player2", "foodWaste", +e.target.value)
                   }
                   className="w-16 bg-gray-900 text-red-400 border border-red-500 rounded text-center"
                 />
@@ -259,7 +297,6 @@ export default function EcoTracker() {
         </div>
       </form>
 
-      {/* Show results AFTER submitting */}
       {showResults && (
         <div className="mt-6 text-center space-y-4">
           <h2 className="text-xl font-semibold text-green-500">Eco Scores</h2>
@@ -290,4 +327,9 @@ export default function EcoTracker() {
       )}
     </div>
   );
+}
+
+// Utility: parse int from query param or default 0
+function parseNum(val: string | null): number {
+  return val ? Number(val) : 0;
 }
