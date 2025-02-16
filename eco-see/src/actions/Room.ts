@@ -10,9 +10,7 @@ const RoomSchema = new Schema(
     title: { type: String, required: true }, // must have a name
     code: {
       type: String,
-      required: false,
-      default: () => nanoid(6),
-      unique: true,
+      required: true,
     }, // auto-generate a 6-character code
   },
   { timestamps: true } // adds createdAt & updatedAt

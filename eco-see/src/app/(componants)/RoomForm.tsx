@@ -1,74 +1,69 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
-const RoomForm = () => {
-  const router = useRouter();
+type Room = {
+  _id: string;
+  name: string;
+  code: string;
+};
 
-  // Use 'name' instead of 'title' if your backend expects a 'name'
-  const startingRoomData = {
-    name: "",
-    code: "",
-  };
-  const [roomData, setRoomData] = useState(startingRoomData);
+const RoomCard = () => {
+  const [room, setRoom] = useState<Room | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setRoomData((prevState) => ({
-      ...prevState,
-      [name]: value,
-    }));
-  };
+  useEffect(() => {
+    const fetchRoom = async () => {
+      try {
+        const res = await fetch("http://localhost:3000/api/rooms");
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleSubmit = async (e: any) => {
-    e.preventDefault();
-    const res = await fetch("/api/Rooms", {
-      method: "POST",
-      body: JSON.stringify(roomData),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+        if (!res.ok) {
+          throw new Error(`Failed to fetch room data. Status: ${res.status}`);
+        }
 
-    if (!res.ok) {
-      throw new Error("Failed to create room");
-    }
+        const responseData = await res.json();
+        console.log("Fetched Rooms:", responseData); // Debugging
 
-    router.refresh();
-    router.push("/rooms");
-  };
+        // Validate API response structure
+        if (
+          !responseData ||
+          !Array.isArray(responseData.data) ||
+          responseData.data.length === 0
+        ) {
+          throw new Error("No rooms found in the database.");
+        }
+
+        setRoom(responseData.data[0]); // Set the first room
+      } catch (err) {
+        console.error("Error fetching rooms:", err);
+        setError((err as Error).message); // Store error for display
+      }
+    };
+
+    fetchRoom();
+  }, []);
+
+  // Show error if fetch failed
+  if (error) {
+    return <p className="text-center text-red-500">Error: {error}</p>;
+  }
+
+  // Show loading state
+  if (!room) {
+    return <p className="text-center text-gray-500">Loading...</p>;
+  }
 
   return (
-    <div className="flex flex-col justify-center items-center min-h-screen bg-black p-6">
-      <form
-        className="bg-white p-6 rounded shadow-md w-full max-w-sm"
-        onSubmit={handleSubmit}
-      >
-        <h3 className="text-white text-xl font-semibold mb-4">
-          Create a new room
-        </h3>
-        <label className="block text-black text-sm font-medium mb-2">
-          Name
-        </label>
-        <input
-          name="name"
-          type="text"
-          onChange={handleChange}
-          required
-          value={roomData.name}
-          className="w-full border border-gray-300 rounded px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-gray-500 text-black"
-        />
-        <button
-          type="submit"
-          className="bg-gray-200 text-black px-4 py-2 rounded hover:bg-gray-300 transition-colors duration-200"
-        >
-          Submit
-        </button>
-      </form>
+    <div className="max-w-[40rem] mx-auto px-6">
+      <div className="flex flex-col bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 p-6">
+        {/* Room Details */}
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">{room.name}</h2>
+        <p className="text-lg text-gray-600">
+          Room Code: <span className="font-semibold">{room.code}</span>
+        </p>
+      </div>
     </div>
   );
 };
 
-export default RoomForm;
+export default RoomCard;

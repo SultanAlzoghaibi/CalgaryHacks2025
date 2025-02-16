@@ -1,23 +1,16 @@
-import Room from "../../(models)/room";
+import dbConnect from "../../lib/mongodb";
+import Room from "../../../actions/Room";
 import { NextResponse } from "next/server";
 
-// 2️⃣ POST Method: Create a new room
-export async function POST(req: Request) {
-  console.log("POST ran");
-  try {
-    // Directly use the request body as the room data
-    const roomData = await req.json();
-    await Room.create(roomData);
+export async function GET() {
+  await dbConnect();
 
-    return NextResponse.json(
-      { message: "Room created (placeholder)" },
-      { status: 201 }
-    );
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { error: "An error occurred while creating the room." },
-      { status: 500 }
-    );
+  try {
+    const rooms = await Room.find({});
+
+    return NextResponse.json(rooms);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message });
   }
 }
