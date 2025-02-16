@@ -27,7 +27,8 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "src/app/(models)/room.js"
+    "src/app/(models)/room.js",
+    "src/app/rooms/[id]/page.tx"
   ],
   "exclude": ["node_modules"]
 }
